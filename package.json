@@ -8,8 +8,10 @@
     "watch:build": "swc src -d dist -s -w",
     "check": "tsc --project .",
     "watch:check": "tsc --watch --preserveWatchOutput --project .",
-    "test": "jest test/**/*.test.ts",
+    "test": "jest",
+    "watch:test": "jest --watch",
     "start": "node dist/index.js",
+    "once": "npm-run-all check build test start",
     "watch:start": "nodemon -w dist dist/index.js",
     "watch": "npm-run-all build --parallel watch:build watch:check watch:start"
   },
