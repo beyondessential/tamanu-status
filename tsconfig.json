@@ -1,0 +1,22 @@
+{
+  "baseUrl": "./src",
+  "compilerOptions": {
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "isolatedModules": false,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "strict": true,
+    "alwaysStrict": true
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "jest.config.js"
+  ]
+}
