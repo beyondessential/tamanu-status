@@ -1,26 +1,11 @@
-import AWS from "aws-sdk";
-import type { PutItemInputAttributeMap } from "aws-sdk/clients/dynamodb";
 import fastify from "fastify";
+import FastifyPostgres from "@fastify/postgres";
 import * as yup from "yup";
 
-const dyndb = new AWS.DynamoDB({ apiVersion: "2012-08-10", region: 'ap-southeast-2' });
-
-function writeItems(table: string, items: PutItemInputAttributeMap[]) {
-  return new Promise((resolve, reject) => {
-    dyndb.batchWriteItem({
-      RequestItems: {
-        [table]: items.map((Item) => ({
-          PutRequest: { Item },
-        })),
-      },
-    }, (err, data) => {
-      if (err) reject(err);
-      else resolve(data);
-    });
-  });
-}
-
 const server = fastify();
+server.register(FastifyPostgres, {
+  connectionString: process.env.DATABASE_URL,
+});
 
 server.get("/", async (request, reply) => {
   return "pong";
@@ -47,7 +32,6 @@ const HOOK_SCHEMA = yup.object({
 });
 
 const HOOK_SECRET = process.env.HONEYCOMB_HOOK_SECRET;
-const HOOK_TABLE = process.env.STATUS_HOOK_TABLE ?? 'tamanu-status-dev';
 server.post("/hook/honeycomb", async (request, reply) => {
   try {
     const hook = await HOOK_SCHEMA.validate(request.body);
@@ -62,15 +46,24 @@ server.post("/hook/honeycomb", async (request, reply) => {
 
     const hookKey = hook.trigger_description.split(":", 2)[1];
     const items = hook.result_groups
-      .map(({ Group: { deployment }, Result }) => ({
-        Hook: { S: hookKey},
-        Deployment: { S: deployment },
-        Value: { N: Result.toString() },
-      }))
-      .filter((item) => item.Deployment);
+      .filter(({ Group: { deployment }}) => deployment)
+      .map(({ Group: { deployment }, Result }) => ({ deployment, value: Result }));
 
-    console.log('Writing items to DynamoDB', { count: items.length, hookKey, table: HOOK_TABLE });
-    await writeItems(HOOK_TABLE, items);
+    console.log("Writing items to DB", {
+      count: items.length,
+      hookKey,
+    });
+    await server.pg.transact(async (client) => {
+      await Promise.all(
+        items.map(({ deployment, value }) =>
+          client.query(
+            "INSERT INTO honeycomb_triggers (hook, deployment, value) VALUES ($1, $2, $3)",
+            [hookKey, deployment, value]
+          )
+        )
+      );
+    });
+    console.log('Done writing');
 
     return "gotcha";
   } catch (err) {
@@ -81,10 +74,31 @@ server.post("/hook/honeycomb", async (request, reply) => {
 
 const port = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
-server.listen({ port }, (err, address) => {
+server.listen({ port }, async (err, address) => {
   if (err) {
     console.error(err);
     process.exit(1);
+  }
+
+  const client = await server.pg.connect();
+  try {
+    console.log('Creating schema');
+    await client.query(`CREATE TABLE IF NOT EXISTS honeycomb_triggers (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      hook text NOT NULL,
+      deployment text NOT NULL,
+      value integer NOT NULL,
+
+      UNIQUE (hook, deployment, timestamp)
+    )`);
+    await client.query(`CREATE INDEX IF NOT EXISTS honeycomb_triggers_hook ON honeycomb_triggers (hook)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS honeycomb_triggers_deployment ON honeycomb_triggers (deployment)`);
+  } catch (err) {
+    console.error(err);
+    throw err;
+  } finally {
+    client.release();
   }
 
   console.log(`Server listening at ${address}`);
