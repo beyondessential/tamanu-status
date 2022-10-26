@@ -1,6 +1,8 @@
 import fastify from "fastify";
 import FastifyPostgres from "@fastify/postgres";
 import * as yup from "yup";
+import type { QueryResult } from "pg";
+import { groupBy } from "lodash";
 
 const server = fastify();
 server.register(FastifyPostgres, {
@@ -8,12 +10,60 @@ server.register(FastifyPostgres, {
 });
 
 server.get("/", async (request, reply) => {
-  const deployments = await server.pg.query(
-    "SELECT DISTINCT deployment FROM honeycomb_triggers"
+  const data = new Map();
+
+  const deploymentsQ: QueryResult = await server.pg.query(
+    "SELECT DISTINCT deployment FROM honeycomb_triggers WHERE deployment IS NOT NULL"
   );
-  const latestValues = await Promise.all(
-    deployments.map((dep: string) => server.pg.query(`TODO`, [dep]))
-  );
+  const deployments: string[] = deploymentsQ.rows.map((row) => row.deployment);
+
+  for (const deployment of deployments) {
+    const depData = new Map();
+
+    const facilitiesQ: QueryResult = await server.pg.query(
+      `SELECT DISTINCT facility FROM honeycomb_triggers WHERE deployment = $1`,
+      [deployment]
+    );
+    const facilities: (string | null)[] = facilitiesQ.rows.map(
+      (row) => row.facility
+    );
+
+    for (const facility of facilities) {
+      const facData = new Map();
+
+      const hooksQ: QueryResult = await (facility
+        ? server.pg.query(
+            `SELECT DISTINCT hook FROM honeycomb_triggers WHERE deployment = $1 AND facility = $2`,
+            [deployment, facility]
+          )
+        : server.pg.query(
+            `SELECT DISTINCT hook FROM honeycomb_triggers WHERE deployment = $1 AND facility IS NULL`,
+            [deployment]
+          ));
+      const hooks: string[] = hooksQ.rows.map((row) => row.hook);
+
+      for (const hook of hooks) {
+        const latestQ: QueryResult = await (facility
+          ? server.pg.query(
+              `SELECT value FROM honeycomb_triggers WHERE deployment = $1 AND facility = $2 AND hook = $3 ORDER BY timestamp DESC LIMIT 1`,
+              [deployment, facility, hook]
+            )
+          : server.pg.query(
+              `SELECT value FROM honeycomb_triggers WHERE deployment = $1 AND facility IS NULL AND hook = $2 ORDER BY timestamp DESC LIMIT 1`,
+              [deployment, hook]
+            ));
+        const latest: number[] = latestQ.rows[0]?.value;
+        console.log({ hook, latest });
+        facData.set(hook, latest);
+      }
+
+      if (facData.size > 0) depData.set(facility, facData);
+    }
+
+    if (depData.size > 0) data.set(deployment, depData);
+  }
+
+  console.log(data);
 
   return "pong";
 });
