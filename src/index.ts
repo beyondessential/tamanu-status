@@ -1,12 +1,19 @@
 import fastify from "fastify";
 import FastifyPostgres from "@fastify/postgres";
+import FastifyView from "@fastify/view";
+import ejs from "ejs";
 import * as yup from "yup";
 import type { QueryResult } from "pg";
-import { groupBy } from "lodash";
 
 const server = fastify();
 server.register(FastifyPostgres, {
   connectionString: process.env.DATABASE_URL,
+});
+
+server.register(FastifyView, {
+  engine: {
+    ejs,
+  },
 });
 
 server.get("/", async (request, reply) => {
@@ -53,7 +60,6 @@ server.get("/", async (request, reply) => {
               [deployment, hook]
             ));
         const latest: number[] = latestQ.rows[0]?.value;
-        console.log({ hook, latest });
         facData.set(hook, latest);
       }
 
@@ -65,7 +71,12 @@ server.get("/", async (request, reply) => {
 
   console.log(data);
 
-  return "pong";
+  const allHooksQ: QueryResult = await server.pg.query(
+    "SELECT DISTINCT hook FROM honeycomb_triggers WHERE hook IS NOT NULL"
+  );
+  const allHooks: string[] = allHooksQ.rows.map((row) => row.hook);
+
+  return reply.view("/templates/view.ejs", { data, allHooks });
 });
 
 const HOOK_SCHEMA = yup.object({

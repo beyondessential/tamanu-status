@@ -1,0 +1,59 @@
+<table>
+<thead>
+  <tr>
+    <td>Server</td>
+    <% for (const hook of allHooks) { %>
+      <td><%= hook %></td>
+    <% } %>
+  </tr>
+</thead>
+<tfoot>
+  <tr>
+    <td>Server</td>
+    <% for (const hook of allHooks) { %>
+      <td>
+        <%= hook %>
+      </td>
+      <% } %>
+  </tr>
+</tfoot>
+<tbody>
+  <% for (const [deployment, facilities] of data.entries()) { %>
+    <tr>
+      <th colspan="<%= allHooks.length + 1 %>"><%= deployment.replace('https://central-', '').replace('https://sync-', '').replace('.tamanu.io', '') %></th>
+    </tr>
+    <tr>
+    <% for (const [facility, hooks] of facilities.entries()) { %>
+      <th><%= facility ?? 'Central' %></th>
+      <% for (const hook of allHooks) { %>
+        <td><%= hooks.get(hook) ?? '' %></td>
+      <% } %>
+    <% } %>
+    </tr>
+  <% } %>
+</tbody>
+</table>
+
+<style>
+  body {
+    font-family: sans-serif;
+  }
+
+  table {
+    border-collapse: collapse;
+    border: 1px solid black;
+  }
+
+  table td, table th {
+    border: 1px solid black;
+    padding: 0.5em;
+  }
+
+  table th {
+    background: #eee;
+  }
+
+  table thead, table tfoot {
+    color: #555;
+  }
+</style>
