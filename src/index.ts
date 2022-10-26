@@ -8,6 +8,13 @@ server.register(FastifyPostgres, {
 });
 
 server.get("/", async (request, reply) => {
+  const deployments = await server.pg.query(
+    "SELECT DISTINCT deployment FROM honeycomb_triggers"
+  );
+  const latestValues = await Promise.all(
+    deployments.map((dep: string) => server.pg.query(`TODO`, [dep]))
+  );
+
   return "pong";
 });
 
@@ -46,8 +53,17 @@ server.post("/hook/honeycomb", async (request, reply) => {
 
     const hookKey = hook.trigger_description.split(":", 2)[1];
     const items = hook.result_groups
-      .filter(({ Group: { deployment }}) => deployment)
-      .map(({ Group: { deployment }, Result }) => ({ deployment, value: Result }));
+      .filter(({ Group: { deployment } }) => deployment)
+      .map(
+        ({
+          Group: { deployment, facility },
+          Result,
+        }): {
+          deployment: string;
+          facility?: string;
+          value: number;
+        } => ({ deployment, facility, value: Result })
+      );
 
     console.log("Writing items to DB", {
       count: items.length,
@@ -55,15 +71,15 @@ server.post("/hook/honeycomb", async (request, reply) => {
     });
     await server.pg.transact(async (client) => {
       await Promise.all(
-        items.map(({ deployment, value }) =>
+        items.map(({ deployment, facility, value }) =>
           client.query(
-            "INSERT INTO honeycomb_triggers (hook, deployment, value) VALUES ($1, $2, $3)",
-            [hookKey, deployment, value]
+            "INSERT INTO honeycomb_triggers (hook, deployment, facility, value) VALUES ($1, $2, $3, $4)",
+            [hookKey, deployment, facility, value]
           )
         )
       );
     });
-    console.log('Done writing');
+    console.log("Done writing");
 
     return "gotcha";
   } catch (err) {
@@ -82,18 +98,24 @@ server.listen({ port }, async (err, address) => {
 
   const client = await server.pg.connect();
   try {
-    console.log('Creating schema');
+    console.log("Creating schema");
     await client.query(`CREATE TABLE IF NOT EXISTS honeycomb_triggers (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
       hook text NOT NULL,
       deployment text NOT NULL,
-      value integer NOT NULL,
-
-      UNIQUE (hook, deployment, timestamp)
+      facility text NULL,
+      value integer NOT NULL
     )`);
-    await client.query(`CREATE INDEX IF NOT EXISTS honeycomb_triggers_hook ON honeycomb_triggers (hook)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS honeycomb_triggers_deployment ON honeycomb_triggers (deployment)`);
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS honeycomb_triggers_hook ON honeycomb_triggers (hook)`
+    );
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS honeycomb_triggers_deployment ON honeycomb_triggers (deployment)`
+    );
+    await client.query(
+      `CREATE INDEX IF NOT EXISTS honeycomb_triggers_facility ON honeycomb_triggers (deployment, facility)`
+    );
   } catch (err) {
     console.error(err);
     throw err;
