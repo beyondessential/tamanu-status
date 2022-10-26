@@ -21,8 +21,8 @@
     "type": "git",
     "url": "git+https://github.com/beyondessential/tamanu-status.git"
   },
-  "author": "Félix Saparelli <felix@passcod.name> (https://passcod.name/)",
-  "license": "UNLICENSED",
+  "author": "Beyond Essential Systems Pty. Ltd.",
+  "license": "SEE LICENSE IN license",
   "devDependencies": {
     "@swc/cli": "^0.1.57",
     "@swc/core": "^1.3.10",
