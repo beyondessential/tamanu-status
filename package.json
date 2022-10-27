@@ -12,7 +12,7 @@
     "test": "jest",
     "watch:test": "jest --watch",
     "start": "node dist/index.js",
-    "start:eb": "PORT=5000 DATABASE_URL=\"postgresql://$RDS_USERNAME:$RDS_PASSWORD@$RDS_HOSTNAME:$RDS_PORT/$RDS_DB_NAME\" npm start",
+    "start:eb": "DATABASE_URL=\"postgresql://$RDS_USERNAME:$RDS_PASSWORD@$RDS_HOSTNAME:$RDS_PORT/$RDS_DB_NAME\" npm start",
     "once": "npm-run-all check build test start",
     "watch:start": "nodemon -w dist dist/index.js",
     "watch": "npm-run-all build --parallel watch:build watch:check watch:start"
