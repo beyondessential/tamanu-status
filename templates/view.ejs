@@ -24,7 +24,7 @@
     <% for (const [facility, hooks] of facilities.entries()) { %>
       <th><%= facility ?? 'Central' %></th>
       <% for (const hook of allHooks) { %>
-        <td class="<%= (hooks.get(hook) ?? 0) > (hookDescriptions.get(hook)?.threshold ?? 0) ? 'over-threshold' : 'under-threshold' %>"><%= hooks.get(hook) ?? '' %></td>
+        <td class="<%= typeof hooks.get(hook) !== 'number' ? 'no-value' : '' %> <%= (hooks.get(hook) ?? 0) > (hookDescriptions.get(hook)?.threshold ?? 0) ? 'over-threshold' : 'under-threshold' %>"><%= hooks.get(hook) ?? '' %></td>
       <% } %>
     <% } %>
     </tr>
@@ -67,5 +67,9 @@
 
   .under-threshold {
     background: #0f0;
+  }
+
+  .no-value {
+    background: white;
   }
 </style>
