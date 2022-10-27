@@ -3,7 +3,7 @@
   <tr>
     <td>Server</td>
     <% for (const hook of allHooks) { %>
-      <td><%= hook %></td>
+      <td><%= hookDescriptions.get(hook)?.description ?? hook %></td>
     <% } %>
   </tr>
 </thead>
@@ -11,10 +11,8 @@
   <tr>
     <td>Server</td>
     <% for (const hook of allHooks) { %>
-      <td>
-        <%= hook %>
-      </td>
-      <% } %>
+      <td><%= hookDescriptions.get(hook)?.description ?? hook %></td>
+    <% } %>
   </tr>
 </tfoot>
 <tbody>
@@ -26,7 +24,7 @@
     <% for (const [facility, hooks] of facilities.entries()) { %>
       <th><%= facility ?? 'Central' %></th>
       <% for (const hook of allHooks) { %>
-        <td><%= hooks.get(hook) ?? '' %></td>
+        <td class="<%= (hooks.get(hook) ?? 0) > (hookDescriptions.get(hook)?.threshold ?? 0) ? 'over-threshold' : 'under-threshold' %>"><%= hooks.get(hook) ?? '' %></td>
       <% } %>
     <% } %>
     </tr>
@@ -55,5 +53,14 @@
 
   table thead, table tfoot {
     color: #555;
+  }
+
+  .over-threshold {
+    background: #f00;
+    color: #fff;
+  }
+
+  .under-threshold {
+    background: #0f0;
   }
 </style>

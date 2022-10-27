@@ -72,11 +72,35 @@ server.get("/", async (request, reply) => {
   console.log(data);
 
   const allHooksQ: QueryResult = await server.pg.query(
-    "SELECT DISTINCT hook FROM honeycomb_triggers WHERE hook IS NOT NULL"
+    `SELECT allh.hook FROM (
+      SELECT DISTINCT hook FROM honeycomb_triggers WHERE hook IS NOT NULL
+    ) allh
+    LEFT JOIN trigger_descriptions td ON allh.hook = td.hook
+    ORDER BY td."order" ASC`
   );
   const allHooks: string[] = allHooksQ.rows.map((row) => row.hook);
 
-  return reply.view("/templates/view.ejs", { data, allHooks });
+  const hookDescriptionsQ: QueryResult = await server.pg.query(
+    `SELECT hook, description, threshold FROM trigger_descriptions`
+  );
+  const hookDescriptions: Map<
+    string,
+    {
+      description: string;
+      threshold: number;
+    }
+  > = new Map(
+    hookDescriptionsQ.rows.map(({ hook, description, threshold }) => [
+      hook,
+      { description, threshold },
+    ])
+  );
+
+  return reply.view("/templates/view.ejs", {
+    data,
+    allHooks,
+    hookDescriptions,
+  });
 });
 
 const HOOK_SCHEMA = yup.object({
@@ -177,6 +201,21 @@ server.listen({ port }, async (err, address) => {
     await client.query(
       `CREATE INDEX IF NOT EXISTS honeycomb_triggers_facility ON honeycomb_triggers (deployment, facility)`
     );
+    await client.query(`CREATE TABLE IF NOT EXISTS trigger_descriptions (
+      hook text NOT NULL PRIMARY KEY,
+      "order" integer NOT NULL,
+      description text NOT NULL,
+      threshold integer NOT NULL
+    )`);
+    await client.query(`TRUNCATE TABLE trigger_descriptions`);
+    await client.query(`
+      INSERT INTO trigger_descriptions
+      ("order", hook, description, threshold)
+      VALUES
+      (1, 'error-rate', 'Errors per minute', 10),
+      (2, 'email-queue-size', 'Email backlog', 50),
+      (3, 'certnotif-queue-size', 'Certificate notification backlog', 20)
+    `);
   } catch (err) {
     console.error(err);
     throw err;
