@@ -18,7 +18,7 @@
 <tbody>
   <% for (const [deployment, facilities] of data.entries()) { %>
     <tr>
-      <th colspan="<%= allHooks.length + 1 %>"><%= deployment.replace('https://central-', '').replace('https://sync-', '').replace('.tamanu.io', '') %></th>
+      <th class="deprow" colspan="<%= allHooks.length + 1 %>"><%= deployment.replace('https://central-', '').replace('https://sync-', '').replace('.tamanu.io', '') %></th>
     </tr>
     <tr>
     <% for (const [facility, hooks] of facilities.entries()) { %>
@@ -53,6 +53,11 @@
 
   table thead, table tfoot {
     color: #555;
+  }
+
+  .deprow, tfoot tr > * {
+    border-top-style: double;
+    border-top-width: 3px;
   }
 
   .over-threshold {
