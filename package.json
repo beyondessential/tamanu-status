@@ -21,7 +21,7 @@
     "type": "git",
     "url": "git+https://github.com/beyondessential/tamanu-status.git"
   },
-  "author": "Beyond Essential Systems Pty. Ltd.",
+  "author": "BES International Limited",
   "license": "SEE LICENSE IN license",
   "devDependencies": {
     "@swc/cli": "^0.1.57",
